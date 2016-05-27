@@ -1,8 +1,9 @@
 # uav_position_controller
 ROS packages for controlling position, velocity and accelaration of an UAV by interfacing a lower level controller with pitch, roll, yaw and thrust commands
 
-Package includes two sub packages
+Package includes 3 sub packages
 * position_controller is the actual controller node
+* path_follower is an externsion for the position_controller that allows to follow given paths/trajectories
 * rqt_position_controller is a rqt plugin for external configuration (e.g PIDs)
 
 The position_controller includes 3 nodes
