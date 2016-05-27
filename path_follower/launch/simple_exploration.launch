@@ -1,0 +1,3 @@
+<launch>
+		<node pkg="path_follower" type="simple_exploration_node.py" name="simple_exploration_node" output="screen" > </node>
+</launch>

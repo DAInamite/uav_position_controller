@@ -1,0 +1,9 @@
+# Goal
+nav_msgs/Path path
+float32 heading_yaw
+---
+# Result
+geometry_msgs/PoseStamped pose
+---
+# Feedback
+uint32 number_of_poses_reached
