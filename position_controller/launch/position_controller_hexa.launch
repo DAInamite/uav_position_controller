@@ -1,0 +1,85 @@
+<launch>
+    <env name="ROSCONSOLE_CONFIG_FILE" 
+       value="$(find spacebot_launch)/rosconsole.config"/>
+
+    <!-- Converting odom coordinate frame into common rviz orientations-->
+    <node pkg="tf" type="static_transform_publisher" name="world_odom_broadcaster" args="0 0 0 0 1 0 0 /world /odom 100" />
+
+	<group ns="position_controller">
+		<node pkg="position_controller" type="position_controller_node" 
+			name="position_controller_node" output="screen"
+			><!-- launch-prefix="gdbserver localhost:10000">REMOVE for debugging-->
+			<param name="motor_controller_output_topic" type="string" value="/mikrokopter/control"/>  
+			<param name="motor_controller_input_topic" type="string" value="/robot/input_control"/>
+			<param name="odometry_output_topic" type="string" value="/position_controller/pose"/>    
+			<param name="height_range_input_topic" type="string" value="/srf_serial/sensor/sonar"/>
+            <param name="flow_input_topic" type="string" value="/px4flow/opt_flow"/>
+            <param name="flow_rot_input_topic" type="string" value="/px4flow/opt_flow_rad"/> 
+            <param name="input_pose_topic" type="string" value="/position_controller/target_pose"/>
+			<param name="altitude_max_incline_error" value="1"/>
+			<param name="altitude_max_decline_error" value="-1"/> 	
+            <!--<param name="thrust_hover" value="111"/> --><!--Hexa1 without xtion-->
+            <param name="thrust_hover" value="118"/> <!--Hexa1 with xtion-->
+            <param name="thrust_max_change" value="2" />
+            <param name="yaw_max_velocity" value="2" />	
+			<param name="control_pitch_roll_factor" value="0.005" />
+			<param name="control_yaw_factor" value="0.005" />	
+			<param name="max_velocity" value="2" />		
+			<param name="max_pitch_roll" value="15" />	
+			<param name="max_yaw" value="127" />
+            <param name="max_thrust" value="130" />	<!--Hexa1-->
+			<param name="px4flow_quality_threshold_" value="150" /> <!--150 emperical good-->
+			<param name="external_distance_sensor" value="true" />	
+		</node>
+		<group ns="altitude_pid" >
+			<param name="p" value="0.4" />
+			<param name="i" value="0.8" />
+			<param name="d" value="0.2" />
+			<param name="i_clamp" value="10" />
+			<param name="antiwindup" value="true" />	
+		</group>
+		<group ns="pitch_pos_pid" >
+			<param name="p" value="2.0" />
+			<param name="i" value="0" />
+			<param name="d" value="0" />
+			<param name="i_clamp" value="1" />
+			<param name="antiwindup" value="true" />	
+		</group>
+        <group ns="pitch_pid" >
+			<param name="p" value="4.5" />
+			<param name="i" value="0.0" />
+			<param name="d" value="0.0" />
+			<param name="i_clamp" value="20" />
+			<param name="antiwindup" value="true" />	
+		</group>
+		<group ns="roll_pos_pid" >
+			<param name="p" value="1" />
+			<param name="i" value="0" />
+			<param name="d" value="0" />
+			<param name="i_clamp" value="1" />
+			<param name="antiwindup" value="true" />	
+		</group>
+		<group ns="roll_pid" >
+			<param name="p" value="1.0" />
+			<param name="i" value="0.8" />
+			<param name="d" value="0.0" />
+			<param name="i_clamp" value="10" />
+			<param name="antiwindup" value="true" />	
+		</group>
+		<group ns="yaw_pid" >
+			<param name="p" value="10" />
+			<param name="i" value="0" />
+			<param name="d" value="0" />
+			<param name="i_clamp" value="5" />
+			<param name="antiwindup" value="true" />	
+		</group>
+		<group ns="yaw_angle_pid" >
+			<param name="p" value="0.8" />
+			<param name="i" value="0" />
+			<param name="d" value="0" />
+			<param name="i_clamp" value="10" />
+			<param name="antiwindup" value="true" />	
+		</group>
+	</group>
+</launch>
+

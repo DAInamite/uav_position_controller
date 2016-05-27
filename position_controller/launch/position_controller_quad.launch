@@ -1,0 +1,80 @@
+<launch>
+    <env name="ROSCONSOLE_CONFIG_FILE" 
+       value="$(find spacebot_launch)/rosconsole.config"/>
+	<group ns="position_controller">
+		<node pkg="position_controller" type="position_controller_node" 
+			name="position_controller_node" output="screen"
+			><!-- launch-prefix="gdbserver localhost:10000">REMOVE for debugging-->
+			<param name="motor_controller_output_topic" type="string" value="/mikrokopter/control"/>  
+			<param name="motor_controller_input_topic" type="string" value="/robot/input_control"/>
+			<param name="odometry_output_topic" type="string" value="/position_controller/pose"/>    
+			<param name="height_range_input_topic" type="string" value="/srf_serial/sensor/sonar"/>
+            <param name="flow_input_topic" type="string" value="/px4flow/opt_flow"/>
+            <param name="flow_rot_input_topic" type="string" value="/px4flow/opt_flow_rad"/> 
+            <param name="input_pose_topic" type="string" value="/position_controller/target_pose"/>
+			<param name="altitude_max_incline_error" value="1"/>
+			<param name="altitude_max_decline_error" value="-1"/> 	
+			<param name="thrust_hover" value="168"/><!--Quad2-->
+			<param name="thrust_max_change" value="2" />
+            <param name="yaw_max_velocity" value="2" />	
+			<param name="control_pitch_roll_factor" value="0.005" />
+			<param name="control_yaw_factor" value="0.005" />	
+			<param name="max_velocity" value="2" />		
+			<param name="max_pitch_roll" value="20" />	
+			<param name="max_yaw" value="127" />
+            <param name="max_thrust" value="180" /><!--Quad2-->
+			<param name="px4flow_quality_threshold" value="140" />			
+			<param name="external_distance_sensor" value="false" />	
+		</node>
+		<group ns="altitude_pid" >
+			<param name="p" value="5.5" />
+			<param name="i" value="0.6" />
+			<param name="d" value="0.005" />
+			<param name="i_clamp" value="10" />
+			<param name="antiwindup" value="true" />	
+		</group>
+		<group ns="pitch_pos_pid" >
+			<param name="p" value="1" />
+			<param name="i" value="0" />
+			<param name="d" value="0" />
+			<param name="i_clamp" value="1" />
+			<param name="antiwindup" value="true" />	
+		</group>
+		<group ns="roll_pos_pid" >
+			<param name="p" value="1" />
+			<param name="i" value="0" />
+			<param name="d" value="0" />
+			<param name="i_clamp" value="1" />
+			<param name="antiwindup" value="true" />	
+		</group>
+        <group ns="pitch_pid" >
+			<param name="p" value="12.1" />
+			<param name="i" value="0" />
+			<param name="d" value="0" />
+			<param name="i_clamp" value="1" />
+			<param name="antiwindup" value="true" />	
+		</group>
+		<group ns="roll_pid" >
+			<param name="p" value="12.1" />
+			<param name="i" value="0.0" />
+			<param name="d" value="0" />
+			<param name="i_clamp" value="1" />
+			<param name="antiwindup" value="true" />	
+		</group>
+		<group ns="yaw_pid" >
+			<param name="p" value="10" />
+			<param name="i" value="0" />
+			<param name="d" value="0" />
+			<param name="i_clamp" value="5" />
+			<param name="antiwindup" value="true" />	
+		</group>
+		<group ns="yaw_angle_pid" >
+			<param name="p" value="0.8" />
+			<param name="i" value="0" />
+			<param name="d" value="0" />
+			<param name="i_clamp" value="10" />
+			<param name="antiwindup" value="true" />	
+		</group>
+	</group>
+</launch>
+

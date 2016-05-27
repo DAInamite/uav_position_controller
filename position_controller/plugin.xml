@@ -1,0 +1,15 @@
+<library path="src">
+  <class name="simplePositionControlGUI" type="rqt_control_gui.simple_position_control_gui.Overview" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      Simple Position Control GUI
+    </description>
+    <qtgui>
+      <group>
+        <label>Position Controller</label>
+      </group>
+        <label>Simple Position Controller</label>
+      <icon type="theme">system-help</icon>
+      <statustip>Fly the copter.</statustip>
+    </qtgui>
+  </class>
+</library>

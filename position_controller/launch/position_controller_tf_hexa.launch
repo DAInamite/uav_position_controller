@@ -1,0 +1,111 @@
+<launch>
+	 <env name="ROSCONSOLE_CONFIG_FILE" 
+       value="$(find spacebot_launch)/rosconsole.config"/>
+	<node pkg="tf" type="static_transform_publisher" name="world_odom_broadcaster" args="0 0 0 0 0 0 1 /world /odom 100" />
+	<group ns="position_controller">
+		<node pkg="position_controller" type="optical_flow_to_tf_node" 
+				name="optical_flow_to_tf_node" output="screen"
+				><!--launch-prefix="gdbserver localhost:10000"-->
+			<param name="odometry_output_topic" type="string" value="/position_controller/pose"/> 
+			<param name="height_range_input_topic" type="string" value="/srf_serial/sensor/sonar"/> 
+            <param name="flow_input_topic" type="string" value="/px4flow/opt_flow"/>
+            <param name="flow_rot_input_topic" type="string" value="/px4flow/opt_flow_rad"/> 
+            <param name="imu_topic" type="string" value="/imu"/>
+            <param name="px4flow_quality_threshold" value="0" />
+			<param name="external_distance_sensor" value="true" />
+            <param name="external_distance_interpolation" value="true" />
+            <param name="external_imu" value="false" />
+		</node>
+  	 	<node pkg="position_controller" type="position_controller_tf_node" 
+			name="position_controller_node" output="screen"
+			><!--launch-prefix="gdbserver localhost:10000"-->
+			<param name="motor_controller_output_topic" type="string" value="/mikrokopter/control"/>
+			<param name="motor_controller_input_topic" type="string" value="/robot/input_control"/>
+            <param name="input_pose_topic" type="string" value="/position_controller/target_pose"/>
+			<param name="altitude_max_incline_velocity" value="0.2"/>
+			<param name="altitude_max_decline_velocity" value="-0.2"/> 	
+			<param name="thrust_hover" value="124"/><!--Hexa1 with bluefox + sonars-->
+            <!--<param name="thrust_hover" value="114"/>--><!--Hexa1 without xtion-->
+			<param name="thrust_max_change" value="5" />
+			<!-- distance to ground when motors are turned off during landing, in meters -->
+			<param name="landing_turn_off_altitude" value="0.25" />
+			<param name="yaw_max_velocity" value="2" />	
+			<param name="control_pitch_roll_factor" value="0.005" />
+			<param name="control_yaw_factor" value="0.005" />
+			<param name="max_pitch_roll" value="25" />	
+			<param name="max_pitch_roll_velocity" value="0.2" />
+			<param name="max_yaw" value="127" />
+			<param name="robot_frame" value="base_link" /><!-- Coordinate frame of the motors/motion -->
+			<param name="navigation_frame" value="world" />
+		</node>
+		<group ns="altitude_pos_pid" >
+			<param name="p" value="4.0" />
+			<param name="i" value="0.3" />
+			<param name="d" value="2.0" />
+			<param name="i_clamp" value="2" />
+			<param name="antiwindup" value="true" />
+		</group>
+		<group ns="altitude_pid" >
+			<param name="p" value="9.0" />
+			<param name="i" value="0.15" />
+			<param name="d" value="0.5" />
+			<param name="i_clamp" value="20" />
+			<param name="antiwindup" value="true" />
+		</group>
+<!-- pitch_pos_pid and roll_pos_pid define the target velocity based on a given position error-->
+        <arg name="pitch_roll_pos_p" default="0.3"/>
+        <arg name="pitch_roll_pos_i" default="0.2"/>
+        <arg name="pitch_roll_pos_d" default="0"/>
+        <arg name="pitch_roll_pos_i_clamp" default="2"/>
+
+		<group ns="pitch_pos_pid" >
+			<param name="p" value="$(arg pitch_roll_pos_p)" />
+			<param name="i" value="$(arg pitch_roll_pos_i)" />
+			<param name="d" value="$(arg pitch_roll_pos_d)" />
+			<param name="i_clamp" value="$(arg pitch_roll_pos_i_clamp)" />
+			<param name="antiwindup" value="true" />	
+		</group>
+		<group ns="roll_pos_pid" >
+			<param name="p" value="$(arg pitch_roll_pos_p)" />
+			<param name="i" value="$(arg pitch_roll_pos_i)" />
+			<param name="d" value="$(arg pitch_roll_pos_d)" />
+			<param name="i_clamp" value="$(arg pitch_roll_pos_i_clamp)" />
+			<param name="antiwindup" value="true" />	
+		</group>
+
+		<!-- pitch_pid and roll_pid define how strong the system tries to reach its target speed -->
+        <arg name="pitch_roll_p" default="35"/>
+        <arg name="pitch_roll_i" default="0.5"/>
+        <arg name="pitch_roll_d" default="0.0"/>
+        <arg name="pitch_roll_i_clamp" default="20"/>
+        <group ns="pitch_pid" >
+			<param name="p" value="$(arg pitch_roll_p)" />
+			<param name="i" value="$(arg pitch_roll_i)" />
+			<param name="d" value="$(arg pitch_roll_d)" />
+			<param name="i_clamp" value="$(arg pitch_roll_i_clamp)" />
+			<param name="antiwindup" value="true" />	
+		</group>
+		<group ns="roll_pid" >
+			<param name="p" value="$(arg pitch_roll_p)" />
+			<param name="i" value="$(arg pitch_roll_i)" />
+			<param name="d" value="$(arg pitch_roll_d)" />
+			<param name="i_clamp" value="$(arg pitch_roll_i_clamp)" />
+			<param name="antiwindup" value="true" />	
+		</group>
+		<group ns="yaw_angle_pid" >
+			<param name="p" value="2" />
+			<param name="i" value="0.01" />
+			<param name="d" value="0" />
+			<param name="i_clamp" value="2" />
+			<param name="antiwindup" value="true" />
+		</group>
+		<group ns="yaw_pid" >
+			<param name="p" value="20" />
+			<param name="i" value="0.5" />
+			<param name="d" value="0" />
+			<param name="i_clamp" value="10" />
+			<param name="antiwindup" value="true" />
+		</group>
+	</group>
+</launch>
+

@@ -1,0 +1,15 @@
+<library path="src">
+  <class name="PositionControllerConfiguration" type="rqt_position_controller.position_controller.Configuration" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      Configuration UI for the position controller
+    </description>
+    <qtgui>
+      <group>
+        <label>Position Controller</label>
+      </group>
+      <label>Position Controller Configuration</label>
+      <icon type="theme">system-help</icon>
+      <statustip>A UI plugin for adjusting position controller configuration</statustip>
+    </qtgui>
+  </class>
+</library>

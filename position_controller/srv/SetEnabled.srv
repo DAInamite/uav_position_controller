@@ -1,0 +1,4 @@
+bool enableAltitudeControl
+bool enablePitchRollControl
+bool enableYawControl
+---
