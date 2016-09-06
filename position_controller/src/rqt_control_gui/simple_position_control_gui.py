@@ -155,7 +155,7 @@ class Overview(Plugin):
             altitude = float(self._widget.zEdit.text())
             self.setAltitude(altitude)
             self.setAltitude(altitude)
-            statusMessage += "starting to altitude {0}".format(altitude)
+            statusMessage = "starting to altitude {0}".format(altitude)
             self.__statusLabel.setText(statusMessage)
         except ValueError:
             pass
