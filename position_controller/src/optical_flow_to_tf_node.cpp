@@ -29,8 +29,8 @@ public:
 
   OpticalFlowToTF(ros::NodeHandle& n) :
       handle_(n),last_time_odometry_(ros::Time::now()), last_time_rotation_(ros::Time::now()) ,last_time_external_altitude_(ros::Time::now()) ,
-      px4flow_quality_threshold_(0), current_alititude_relative_(0), current_alititude_absolute_(0), private_handle_("~"), current_pitch_pos_integrated_(0), external_altitude_(0.0),
-      current_roll_pos_integrated_(0), currentOrientation(0, 0, 0, 1),  external_distance_sensor_(false), external_distance_sensor_interpolation_(true),
+      px4flow_quality_threshold_(0), private_handle_("~"), external_altitude_(0.0),
+      currentOrientation_(0, 0, 0, 1),  external_distance_sensor_(false), external_distance_sensor_interpolation_(true),
       simulation_mode_(false), external_altitude_velocity_(0), external_imu_(false)
 {
     
@@ -88,6 +88,11 @@ public:
 
     servicePos_ = handle_.advertiseService("set_current_pos", &OpticalFlowToTF::setCurrentPos, this);
 
+    //rotate around y in order to match our/ROS coordinate frame
+    //(PX4Flow z points downwards and y to the left, in ROS z points upwards and y to the left)
+    //XXX this conversion assumes x directed to the back, think about how this setting could be generalised
+    frame_transform_ = tf::Quaternion(0, 1, 0, 0);
+
   }
 
 protected:
@@ -99,21 +104,22 @@ protected:
    */
   void publishOdometry(const ros::Time& timeStamp)
   {
+    tf::quaternionTFToMsg(currentOrientation_, odometry_msgs_.pose.pose.orientation);
     //XXX use configuration for frame names
     odometry_msgs_.header.stamp = timeStamp;
     odometry_msgs_.header.seq++;
     odometry_msgs_.header.frame_id = "odom";
     odometry_msgs_.child_frame_id = "base_link";
-    odometry_msgs_.pose.pose.position.x = current_pitch_pos_integrated_; //x to the front
-    odometry_msgs_.pose.pose.position.y = current_roll_pos_integrated_; // y to the left
-    odometry_msgs_.pose.pose.position.z = current_alititude_relative_; //z axis looks up
+    odometry_msgs_.pose.pose.position.x = current_pos_.x(); //x to the front
+    odometry_msgs_.pose.pose.position.y = current_pos_.y(); // y to the left
+    odometry_msgs_.pose.pose.position.z = current_pos_.z(); //z axis looks up
     odometry_pub_.publish(odometry_msgs_);
 
     static tf::TransformBroadcaster br;
 
     tf::Transform transform;
     transform.setOrigin( tf::Vector3(odometry_msgs_.pose.pose.position.x , odometry_msgs_.pose.pose.position.y, odometry_msgs_.pose.pose.position.z) );
-    transform.setRotation(currentOrientation);
+    transform.setRotation(currentOrientation_);
     br.sendTransform(tf::StampedTransform(transform, timeStamp, odometry_msgs_.header.frame_id, odometry_msgs_.child_frame_id));
   }
 
@@ -133,28 +139,13 @@ protected:
   )
   {
 
-    /* Velocity coordinates in PX4Flow and simulated MORSE sensor with front facing x
-     *         x
-     *        (+)
-     *         ^
-     *         |
-     *       --|--> (+)y
-     *         |
-     */
+    tf::Vector3 odom_pose (x_velocity * duration.toSec(), y_velocity * duration.toSec(), 0);
 
-    //transfer change into start frame
-    //XXX rotate altitude as well?
-    //flip y in order to match our/ROS coordinate frame
-    //XXX this conversion assumes x directed to the back, think about how this setting could be generalised
-    tf::Vector3 delta (-x_velocity * duration.toSec(), y_velocity * duration.toSec(), 0);
+    //transfer changes into ROS robot coordinate frame
+    tf::Vector3 delta = tf::quatRotate(frame_transform_, odom_pose);
 
-    delta = tf::quatRotate(currentOrientation, delta);
-
-    current_pitch_pos_integrated_ += delta.x();
-    current_roll_pos_integrated_  += delta.y();
-    current_alititude_absolute_ += current_alititude_relative_ - z_alititude; //integrate altitude delta
-    current_alititude_relative_ = z_alititude;
-
+    current_pos_ += delta;
+    current_pos_.setZ(z_alititude);
   }
 
   /**
@@ -172,34 +163,21 @@ protected:
        const ros::Duration& duration
     )
    {
-     /*   Rotation coordinate System
-      *     x
-      *     ^
-      *     |
-      * y<--|--
-      *     |
-      *
-      *     z axis is up
-      */
-      //XXX this conversion assumes x directed to the back, think about how this setting could be generalised
-     double x_orient_integrated_ = -x_rot_velocity;
-     double y_orient_integrated_ = y_rot_velocity;
-     double z_orient_integrated_ = -z_rot_velocity;
 
-     //ROS_DEBUG_STREAM("Current Yaw Change: " << to_degrees(z_orient_integrated_));
+     //ROS_DEBUG_STREAM("Current Yaw Change: " << to_degrees(z_rot_velocity));
 
+     //TODO this is a manual transformation of the rotational delta into the target coordinate frame, corresponding to a rotation around
+     // the y axis as done with frame_transform_ for the translational part. It should be possible to do this in a more mathematical fashion
+     tf::Quaternion current_rotation = tf::createQuaternionFromRPY( -y_rot_velocity, x_rot_velocity, -z_rot_velocity);
 
-     tf::Quaternion newQuad = tf::createQuaternionFromRPY( x_orient_integrated_, y_orient_integrated_, z_orient_integrated_);
+     currentOrientation_ = current_rotation * currentOrientation_;
 
-     currentOrientation = newQuad * currentOrientation;
-
-     currentOrientation = currentOrientation.normalize();
+     currentOrientation_ = currentOrientation_.normalize();
 
      //tfScalar pitch, roll, yaw;
-     //tf::Matrix3x3(currentOrientation).getRPY( roll, pitch, yaw);
+     //tf::Matrix3x3(currentOrientation_).getRPY( roll, pitch, yaw);
      //ROS_DEBUG_STREAM("Current Yaw: " << to_degrees(yaw));
 
-     tf::quaternionTFToMsg(currentOrientation, odometry_msgs_.pose.pose.orientation);
    }
 
   void updateRotOdometry(const px_comm::OpticalFlowRadConstPtr& px_flow_rad)
@@ -214,9 +192,7 @@ protected:
     }
 
     if(px_flow_rad->quality > px4flow_quality_threshold_){
-
       integratedOdometryRad(px_flow_rad->integrated_xgyro, px_flow_rad->integrated_ygyro, px_flow_rad->integrated_zgyro, duration);
-
     }
 
     publishOdometry(now);
@@ -240,7 +216,7 @@ protected:
 
     double velocity_x = 0;
     double velocity_y = 0;
-    double ground_distance = 0;
+    double current_ground_distance = 0;
 
     if(px_flow->quality > px4flow_quality_threshold_){
 
@@ -255,21 +231,21 @@ protected:
           velocity_x = px_flow->velocity_x;
           velocity_y = px_flow->velocity_y;
         }
-        ground_distance = external_altitude;
+        current_ground_distance = external_altitude;
       }else{
         velocity_x = px_flow->velocity_x;
         velocity_y = px_flow->velocity_y;
-        ground_distance = px_flow->ground_distance;
+        current_ground_distance = px_flow->ground_distance;
       }
     }else{ // distance is not considered in quality attribute
       if(external_distance_sensor_){
-        ground_distance = getExternalAltitude(now);
+        current_ground_distance = getExternalAltitude(now);
       }else{
-        ground_distance = px_flow->ground_distance;
+        current_ground_distance = px_flow->ground_distance;
       }
-
     }
-    integrateOdometryPos(velocity_x, velocity_y, ground_distance, duration);
+
+    integrateOdometryPos(velocity_x, velocity_y, current_ground_distance, duration);
 
     //only publish after rad update since the updates are always coming in sequence with first translation and second rotation
     if(external_imu_){
@@ -307,19 +283,17 @@ protected:
   void updateIMU(const sensor_msgs::ImuConstPtr& imu)
    {
 
-    tf::Quaternion currentImuOrientation;
+     tf::Quaternion currentImuOrientation;
 
-    tf::quaternionMsgToTF(imu->orientation, currentImuOrientation);
+     tf::quaternionMsgToTF(imu->orientation, currentImuOrientation);
 
      static tf::Quaternion lastImuOrientation = currentImuOrientation;
 
      tf::Quaternion imuOrientationDelta = lastImuOrientation.inverse() * currentImuOrientation;
 
-     currentOrientation = imuOrientationDelta * currentOrientation;
+     currentOrientation_ = imuOrientationDelta * currentOrientation_;
 
-     currentOrientation = currentOrientation.normalize();
-
-     tf::quaternionTFToMsg(currentOrientation, odometry_msgs_.pose.pose.orientation);
+     currentOrientation_ = currentOrientation_.normalize();
 
      publishOdometry(ros::Time::now());
 
@@ -334,12 +308,10 @@ protected:
    */
   bool setCurrentPos(SetCurrentPos::Request &req, SetCurrentPos::Response &res)
   {
-    current_pitch_pos_integrated_ = req.xPos;
-    current_roll_pos_integrated_ = req.yPos;
-    current_alititude_relative_ = req.zPos;
-    current_alititude_absolute_ = req.zPos;
 
-    currentOrientation = tf::createQuaternionFromYaw(req.zRot);
+    current_pos_ = tf::Vector3(req.xPos, req.yPos, req.zPos);
+
+    currentOrientation_ = tf::createQuaternionFromYaw(req.zRot);
 
     return true;
   }
@@ -352,19 +324,17 @@ protected:
   ros::Time last_time_rotation_;
   ros::Time last_time_external_altitude_;
 
+  tf::Quaternion frame_transform_;
+
   /**
    * Position integrated over time
    */
-  double current_pitch_pos_integrated_;
-  double current_roll_pos_integrated_;
-  double current_alititude_relative_;
-  double current_alititude_absolute_;
+  tf::Vector3 current_pos_;
 
   /**
    * Orientation integrated over time
    */
-
-  tf::Quaternion currentOrientation;
+  tf::Quaternion currentOrientation_;
 
   int px4flow_quality_threshold_;
 
