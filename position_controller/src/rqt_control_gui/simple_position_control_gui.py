@@ -74,76 +74,58 @@ class Overview(Plugin):
         self._widget.absoluteControlButton.clicked.connect(self.absoluteControl)
         self._widget.tfButton.clicked.connect(self.goToTF)
         self.__statusLabel = self._widget.statusLabel
-        
+    
+    def setRelativePose(self, x_delta, y_delta, yaw_delta):
+        """
+        set new target position relative to current position
+            :param: x_delta: change in x
+            :param: y_delta: change in y
+            :param: yaw_delta: change in yaw
+        """
+        try:
+            (trans, rot) = self.__tfListener.lookupTransform(self.__worldFrame, self.__copterFrame, rospy.Time(0))
+                        
+            quad_delta = tf.transformations.quaternion_from_euler(0, 0, yaw_delta)
+                        
+            translation_delta = tf.transformations.translation_matrix((x_delta, y_delta, 0))
+                        
+            m_current = tf.transformations.translation_matrix(trans).dot(tf.transformations.quaternion_matrix(rot))
+                      
+            m_delta =  translation_delta.dot(tf.transformations.quaternion_matrix(quad_delta))
+                        
+            m_target = m_current.dot(m_delta)
+                        
+            _, _, target_yaw = tf.transformations.euler_from_matrix(m_target)
+            
+            target_x, target_y, _  = tf.transformations.translation_from_matrix(m_target)
+                                    
+            self.__statusLabel.setText("going to x: {0} y: {1} yaw: {2}".format(target_x, target_y, target_yaw))
+            rospy.wait_for_service('/position_controller/set_target_pos', 1)
+            setPose = rospy.ServiceProxy('/position_controller/set_target_pos', SetPos)
+            setPose(target_x, target_y, target_yaw)
+        except Exception as e:
+            self.__statusLabel.setText(str(e))
         
     def goForward(self):
-        try:
-            distance = float(self._widget.distanceEdit.text())
-            (position, quaternion) = self.__tfListener.lookupTransform(self.__worldFrame, self.__copterFrame, rospy.Time(0))
-            (roll, pitch, yaw) = euler_from_quaternion(quaternion)
-            x = math.cos(yaw) * distance
-            y = math.sin(yaw) * distance
-            self.__statusLabel.setText("going to x: {0} y: {1} yaw: {2}".format(position[0] + x, position[1] + y, yaw))
-            rospy.wait_for_service('/position_controller/set_target_pos', 1)
-            setPose = rospy.ServiceProxy('/position_controller/set_target_pos', SetPos)
-            setPose(position[0] + x, position[1] + y, yaw)
-        except Exception as e:
-            self.__statusLabel.setText(str(e))
-    
+        distance = float(self._widget.distanceEdit.text())
+        self.setRelativePose(distance, 0, 0)
+            
     def goBackward(self):
-        try:
-            distance = float(self._widget.distanceEdit.text())
-            (position, quaternion) = self.__tfListener.lookupTransform(self.__worldFrame, self.__copterFrame, rospy.Time(0))
-            (roll, pitch, yaw) = euler_from_quaternion(quaternion)
-            x = math.cos(yaw) * -distance
-            y = math.sin(yaw) * -distance
-            self.__statusLabel.setText("going to x: {0} y: {1} yaw: {2}".format(position[0] + x, position[1] + y, yaw))
-            rospy.wait_for_service('/position_controller/set_target_pos', 1)
-            setPose = rospy.ServiceProxy('/position_controller/set_target_pos', SetPos)
-            setPose(position[0] + x, position[1] + y, yaw)
-        except Exception as e:
-            self.__statusLabel.setText(str(e))
+        distance = float(self._widget.distanceEdit.text())
+        self.setRelativePose(-distance, 0, 0)
         
     def goLeft(self):
-        try:
-            distance = float(self._widget.distanceEdit.text())
-            (position, quaternion) = self.__tfListener.lookupTransform(self.__worldFrame, self.__copterFrame, rospy.Time(0))
-            (roll, pitch, yaw) = euler_from_quaternion(quaternion)
-            x = math.sin(yaw) * distance
-            y = math.cos(yaw) * distance
-            self.__statusLabel.setText("going to x: {0} y: {1} yaw: {2}".format(position[0] + x, position[1] + y, yaw))
-            rospy.wait_for_service('/position_controller/set_target_pos', 1)
-            setPose = rospy.ServiceProxy('/position_controller/set_target_pos', SetPos)
-            setPose(position[0] + x, position[1] + y, yaw)
-        except Exception as e:
-            self.__statusLabel.setText(str(e))
+        distance = float(self._widget.distanceEdit.text())
+        self.setRelativePose(0, distance, 0)
     
     def goRight(self):
-        try:
-            distance = float(self._widget.distanceEdit.text())
-            (position, quaternion) = self.__tfListener.lookupTransform(self.__worldFrame, self.__copterFrame, rospy.Time(0))
-            (roll, pitch, yaw) = euler_from_quaternion(quaternion)
-            x = math.sin(yaw) * -distance
-            y = math.cos(yaw) * -distance
-            self.__statusLabel.setText("going to x: {0} y: {1} yaw: {2}".format(position[0] + x, position[1] + y, yaw))
-            rospy.wait_for_service('/position_controller/set_target_pos', 1)
-            setPose = rospy.ServiceProxy('/position_controller/set_target_pos', SetPos)
-            setPose(position[0] + x, position[1] + y, yaw)
-        except Exception as e:
-            self.__statusLabel.setText(str(e))
+        distance = float(self._widget.distanceEdit.text())
+        self.setRelativePose(0, -distance, 0)
     
     def rotate(self):
-        try:
-            angle = math.pi * float(self._widget.rotationEdit.text()) / 180.0
-            (position, quaternion) = self.__tfListener.lookupTransform(self.__worldFrame, self.__copterFrame, rospy.Time(0))
-            (roll, pitch, yaw) = euler_from_quaternion(quaternion)
-            self.__statusLabel.setText("new yaw: {0}".format(yaw + angle))
-            rospy.wait_for_service('/position_controller/set_target_pos', 1)
-            setPose = rospy.ServiceProxy('/position_controller/set_target_pos', SetPos)
-            setPose(position[0], position[1], yaw + angle)
-        except Exception as e:
-            self.__statusLabel.setText(str(e))
-            
+        angle = math.pi * float(self._widget.rotationEdit.text()) / 180.0
+        self.setRelativePose(0, 0, angle)
+                    
     def land(self):
         try:
             self.setAltitude(0.0)
